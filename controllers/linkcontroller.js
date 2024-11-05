@@ -1,6 +1,9 @@
 // controllers/linkcontroller.js
 const Link = require('../models/link');
 const User = require('../models/user');
+const GlobalEconomy = require('../models/globaleconomy');
+const checkAchievements = require('../utils/achievementcheck');
+const { calculateUpgradeCost, calculateClaimCost } = require('./globaleconomycontroller');
 
 // Get a random link from the database
 exports.getRandomLink = async (req, res) => {
@@ -12,18 +15,44 @@ exports.getRandomLink = async (req, res) => {
     }
 };
 
-// Claim a link for a specific user
+// Claim a link for a specific user (costs dynamically calculated)
 exports.claimLink = async (req, res) => {
     const { userId, linkId } = req.body;
     try {
         const link = await Link.findById(linkId);
         if (link && !link.owner) {
+            const user = await User.findById(userId);
+            
+            // Calculate dynamic claim cost based on economy
+            const claimCost = await calculateClaimCost();
+            
+            if (user.points < claimCost) {
+                return res.status(400).json({ message: `Insufficient points to claim this link. Claim cost is ${claimCost} points.` });
+            }
+
+            // Deduct points for claiming the link
+            user.points -= claimCost;
+            user.sitesOwned += 1;
+            user.linksCreatedToday += 1; // Track links created today
+            await user.save();
+
+            // Assign ownership of the link to the user
             link.owner = userId;
             await link.save();
 
-            // Update user's sitesOwned count and points
-            await User.findByIdAndUpdate(userId, { $inc: { points: 10, sitesOwned: 1 } });
-            res.json({ success: true, message: 'Link claimed!' });
+            // Check for any new achievements after claiming the link
+            const newAchievements = await checkAchievements(userId);
+
+            res.json({
+                success: true,
+                message: 'Link claimed!',
+                link,
+                user: { id: user._id, points: user.points },
+                newAchievements: newAchievements.map((a) => ({
+                    title: a.title,
+                    description: a.description
+                }))
+            });
         } else {
             res.status(400).json({ success: false, message: 'Link already owned or not found' });
         }
@@ -49,10 +78,23 @@ exports.visitLink = async (req, res) => {
                 // Update metrics for visitor and owner
                 visitor.sitesVisited += 1;
                 visitor.creditsSpent += link.toll;
+                visitor.linksVisitedToday += 1; // Track visits made today
+                owner.dailyVisits += 1;              // Track owner's daily visits
+                owner.dailyTollsEarned += link.toll; // Track owner's daily toll earnings
                 await visitor.save();
                 await owner.save();
 
-                res.json({ success: true, message: 'Toll paid' });
+                // Check for any new achievements after visiting the link
+                const newAchievements = await checkAchievements(visitorId);
+
+                res.json({
+                    success: true,
+                    message: 'Toll paid',
+                    newAchievements: newAchievements.map((a) => ({
+                        title: a.title,
+                        description: a.description
+                    }))
+                });
             } else {
                 res.status(400).json({ message: 'Insufficient credits' });
             }
@@ -73,89 +115,136 @@ exports.addAndClaimLink = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        // Calculate dynamic claim cost
+        const claimCost = await calculateClaimCost();
+        
+        if (user.points < claimCost) {
+            return res.status(400).json({ message: `Insufficient points to claim a new link. Claim cost is ${claimCost} points.` });
+        }
+
         const newLink = new Link({ url, toll, owner: userId });
         await newLink.save();
 
-        // Increment user's sitesOwned count and points
-        user.points += 10; // Reward points for adding a link
+        // Deduct points for claiming the link
+        user.points -= claimCost;
         user.sitesOwned += 1;
+        user.linksCreatedToday += 1;
         await user.save();
 
-        res.status(201).json({ message: 'Link added and claimed successfully', link: newLink });
+        // Check for any new achievements after adding the link
+        const newAchievements = await checkAchievements(userId);
+
+        res.status(201).json({
+            message: 'Link added and claimed successfully',
+            link: newLink,
+            newAchievements: newAchievements.map((a) => ({
+                title: a.title,
+                description: a.description
+            }))
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error adding and claiming link', error });
     }
 };
 
-// Trade a link between two users with a market fee
+// Trade a link between users
 exports.tradeLink = async (req, res) => {
-    const { currentOwnerId, newOwnerId, linkId, price } = req.body;
-
+    const { currentOwnerId, newOwnerId, linkId, tradeCost } = req.body;
     try {
-        // Validate price is within acceptable range
-        if (price < 0 || price > 100) {
-            return res.status(400).json({ message: 'Trade price must be between 0 and 100 credits' });
-        }
-
         // Find the link to trade
         const link = await Link.findById(linkId);
-
-        // Check if the link exists and is currently owned by the specified owner
         if (!link || link.owner.toString() !== currentOwnerId) {
             return res.status(403).json({ message: 'You are not the owner of this link or the link does not exist' });
         }
 
-        // Retrieve the current owner and new owner from the database
-        const currentOwner = await User.findById(currentOwnerId);
+        // Check if the new owner exists and has enough credits
         const newOwner = await User.findById(newOwnerId);
-
-        // Validate the users
-        if (!currentOwner) {
-            return res.status(404).json({ message: 'Current owner does not exist' });
-        }
-        if (!newOwner) {
-            return res.status(404).json({ message: 'The new owner does not exist' });
-        }
-
-        // Check if current owner has enough credits for the 5-credit market fee
-        if (currentOwner.credits < 5) {
-            return res.status(400).json({ message: 'Current owner does not have enough credits to use the market' });
-        }
-
-        // Check if the new owner has enough credits for the specified price
-        if (newOwner.credits < price) {
+        if (!newOwner) return res.status(404).json({ message: 'The new owner does not exist' });
+        if (newOwner.credits < tradeCost) {
             return res.status(400).json({ message: 'New owner does not have enough credits for the trade' });
         }
 
-        // Deduct the 5-credit market fee from the current owner
-        currentOwner.credits -= 5;
-        currentOwner.tradesCount += 1; // Increment trade count for current owner
+        // Deduct trade cost from new owner's credits
+        newOwner.credits -= tradeCost;
+        newOwner.tradesMadeToday += 1; // Track trades made today
+        await newOwner.save();
 
-        // Deduct the trade price from the new owner's credits
-        newOwner.credits -= price;
-        newOwner.tradesCount += 1; // Increment trade count for new owner
-        
         // Transfer ownership of the link
         link.owner = newOwnerId;
-
-        // Save all updates to the database
-        await currentOwner.save();
-        await newOwner.save();
         await link.save();
+
+        // Reward the current owner with points (optional)
+        const currentOwner = await User.findById(currentOwnerId);
+        currentOwner.tradesCount += 1;
+        await currentOwner.save();
+
+        // Check for any new achievements after the trade
+        const currentOwnerAchievements = await checkAchievements(currentOwnerId);
+        const newOwnerAchievements = await checkAchievements(newOwnerId);
 
         res.status(200).json({
             message: 'Link traded successfully',
             link,
-            currentOwner: {
-                id: currentOwner._id,
-                credits: currentOwner.credits
-            },
-            newOwner: {
-                id: newOwner._id,
-                credits: newOwner.credits
-            }
+            currentOwnerAchievements: currentOwnerAchievements.map((a) => ({
+                title: a.title,
+                description: a.description
+            })),
+            newOwnerAchievements: newOwnerAchievements.map((a) => ({
+                title: a.title,
+                description: a.description
+            }))
         });
     } catch (error) {
         res.status(500).json({ message: 'Error trading link', error });
+    }
+};
+
+// Upgrade a site (link) to the next level with dynamically calculated cost
+exports.upgradeLink = async (req, res) => {
+    const { userId, linkId } = req.body;
+
+    try {
+        // Find the link
+        const link = await Link.findById(linkId);
+        if (!link) return res.status(404).json({ message: 'Link not found' });
+
+        // Check if the user owns the link
+        if (link.owner.toString() !== userId) {
+            return res.status(403).json({ message: 'You do not own this link' });
+        }
+
+        // Calculate dynamic upgrade cost based on economy state
+        const upgradeCost = await calculateUpgradeCost(link);
+
+        // Find the user and check if they have enough credits
+        const user = await User.findById(userId);
+        if (user.credits < upgradeCost) {
+            return res.status(400).json({ message: `Insufficient credits to upgrade. Upgrade cost is ${upgradeCost} credits.` });
+        }
+
+        // Deduct credits from the user
+        user.credits -= upgradeCost;
+        user.upgradesMade += 1;
+        await user.save();
+
+        // Increase the link's level and update its toll
+        link.level += 1;
+        link.toll = link.level; // New toll amount is equal to the new level
+        await link.save();
+
+        // Check for any new achievements after upgrading
+        const newAchievements = await checkAchievements(userId);
+
+        res.status(200).json({
+            message: 'Link upgraded successfully',
+            link,
+            user: { id: user._id, credits: user.credits },
+            newAchievements: newAchievements.map((a) => ({
+                title: a.title,
+                description: a.description
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error upgrading link', error });
     }
 };

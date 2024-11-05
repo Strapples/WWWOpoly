@@ -1,47 +1,52 @@
-## WWWOpoly
+### `README.md`
 
-Welcome to **WWWOpoly**, a web-based game inspired by Monopoly, where players "own" internet links and earn points by claiming and sharing URLs. Players gain credits from visitors who access their owned links through the platform. It's an engaging, competitive game designed for players to build virtual empires on the web!
+# WWWOpoly
 
----
+WWWOpoly is a web-based game where players compete to claim, upgrade, and trade websites in a Monopoly-like setting. Players earn credits by visiting, owning, and sharing links, while navigating a dynamic economy influenced by global and player-driven actions.
 
-### Table of Contents
-1. [Game Mechanics](#game-mechanics)
-2. [Project Overview](#project-overview)
-3. [Installation](#installation)
-4. [Environment Variables](#environment-variables)
-5. [API Endpoints](#api-endpoints)
-6. [Contributing](#contributing)
+## Table of Contents
 
----
-
-### Game Mechanics
-
-The core gameplay of WWWOpoly revolves around link ownership, tolls, and strategic sharing:
-
-- **Claim Links**: Players receive random web links from a database and can "claim" ownership by visiting and claiming them. Claimed links become part of the player's "empire."
-- **Tolls**: When other players visit a claimed link, a small credit (or "toll") is deducted from the visitor’s account and credited to the owner.
-- **Points and Leaderboard**: Players earn points for claiming links and collecting tolls. A leaderboard ranks players based on points, fostering competition.
-- **Credits**: Players start with a set amount of credits, which they spend to pay tolls and earn through toll collection from other users visiting their links.
+- [Features](#features)
+- [Technologies Used](#technologies-used)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Game Mechanics](#game-mechanics)
+  - [Achievements and Badges](#achievements-and-badges)
+  - [Daily Missions](#daily-missions)
+  - [Global Economy](#global-economy)
+- [API Endpoints](#api-endpoints)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-### Project Overview
+## Features
 
-**WWWOpoly** is built with a traditional web stack:
-
-- **Backend**: Node.js and Express are used to handle API requests and game logic.
-- **Database**: MongoDB stores user profiles, link data, and transaction logs.
-- **Frontend**: (To be developed) React or Vue.js will provide the game's user interface.
+- **Claim Links**: Players can claim website links, which then earn tolls whenever another player visits them.
+- **Upgrades**: Players can upgrade their owned links to increase tolls and earning potential.
+- **Achievements and Badges**: Unlock achievements for reaching milestones.
+- **Daily Missions**: Complete daily tasks for bonus rewards.
+- **Global Economy**: A dynamic economy where player actions impact the game environment, including toll rates and upgrade costs.
+- **Community Fund**: Players can contribute to a global fund to unlock game-wide benefits.
 
 ---
 
-### Installation
+## Technologies Used
 
-Follow these steps to set up the project locally:
+- **Node.js**: Server-side JavaScript runtime.
+- **Express.js**: Web framework for handling HTTP requests and routing.
+- **MongoDB**: NoSQL database for storing user data, links, and global economy metrics.
+- **Mongoose**: ORM for MongoDB to define models and interact with the database.
+- **Nodemailer**: Email service for sending notifications and daily digests.
+- **node-cron**: Scheduler for timed events and global economy modifiers.
+
+---
+
+## Installation
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/WWWOpoly.git
+   git clone https://github.com/your-username/WWWOpoly.git
    cd WWWOpoly
    ```
 
@@ -51,73 +56,124 @@ Follow these steps to set up the project locally:
    ```
 
 3. **Setup MongoDB**:
-   - Ensure MongoDB is running locally or set up a cloud instance (e.g., MongoDB Atlas).
-   - Add the MongoDB URI to your environment variables as shown below.
+   - Make sure MongoDB is installed and running.
+   - Configure the MongoDB URI in the `.env` file.
 
-4. **Run the Server**:
-   - To start the server, run:
-     ```bash
-     npm start
+4. **Configure Environment Variables**:
+   - Create a `.env` file in the root directory and specify the following variables:
      ```
-   - For development with auto-reload:
-     ```bash
-     npx nodemon server.js
+     MONGO_URI=mongodb://localhost:27017/wwwopoly
+     JWT_SECRET=your_jwt_secret
+     EMAIL_USER=your_email@example.com
+     EMAIL_PASS=your_email_password
      ```
+
+5. **Start the Server**:
+   ```bash
+   npm start
+   ```
 
 ---
 
-### Environment Variables
+## Configuration
 
-Create a `.env` file in the root directory and add the following variables:
+- **Global Economy Settings**: You can configure the initial values and thresholds for the global economy in the `GlobalEconomy` model (located in `models/globaleconomy.js`).
+- **Achievements and Missions**: Adjust available achievements and daily missions in the `utils/achievements.js` and `utils/dailymissions.js` files.
 
-```plaintext
-MONGODB_URI=your_mongodb_uri_here
-PORT=5000  # Or any other port you prefer
+---
+
+## Game Mechanics
+
+### Achievements and Badges
+
+Players earn achievements as they progress in the game, such as claiming a certain number of links or spending credits. Achievements are stored in the database and are awarded automatically based on in-game actions.
+
+### Daily Missions
+
+Daily missions reset each day at midnight UTC. Missions include tasks like:
+- **Claiming Links**: Claim a specified number of links.
+- **Visiting Links**: Visit a certain number of links to earn rewards.
+- **Trading Links**: Make trades with other players.
+- **Reporting Dead Links**: Help the community by reporting broken or inactive links.
+
+Missions reward players with points or credits and are tracked in the `User` model. Players can opt to receive daily mission reminders via email.
+
+### Global Economy
+
+The game’s economy dynamically adjusts based on player actions:
+- **Total Credits in Circulation**: As players accumulate credits, prices may rise (inflation).
+- **Average Toll Rate**: Frequently visited links may experience toll increases, while rarely visited links may drop in toll.
+- **Scheduled Events**: Periodic events like "High Toll Weekend" introduce variety by temporarily modifying the economy.
+- **Global Fund**: Players can contribute to a global fund, which unlocks rewards or decreases costs when certain thresholds are met.
+
+---
+
+## API Endpoints
+
+### User Management
+- `POST /api/users/register` - Register a new user.
+- `POST /api/users/login` - Log in an existing user.
+- `PUT /api/users/update-email-preferences` - Update user email notification preferences.
+
+### Game Actions
+- `POST /api/links/claim` - Claim a link for a user (costs 2 points).
+- `POST /api/links/visit` - Visit a link and pay a toll to the owner.
+- `POST /api/links/trade` - Trade a link between two users.
+
+### Global Economy
+- `GET /api/economy/status` - Retrieve the current global economy metrics.
+- `POST /api/economy/contribute` - Contribute credits to the global community fund.
+
+---
+
+## Contributing
+
+1. Fork the repository.
+2. Create a new branch:
+   ```bash
+   git checkout -b feature-name
+   ```
+3. Make your changes and commit them:
+   ```bash
+   git commit -m "Add feature-name"
+   ```
+4. Push to your branch:
+   ```bash
+   git push origin feature-name
+   ```
+5. Create a pull request on GitHub.
+
+---
+
+## License
+
+This project is licensed under the GNU AGPLv3. See the [LICENSE](./LICENSE) file for details.
+
+---
+
+## Contact
+
+For questions or feedback, please contact [Alin Straps](mailto:your-email@example.com).
+
+---
+
+## Acknowledgements
+
+- **MongoDB** for providing the NoSQL database backbone.
+- **Express** for simplifying server-side code.
+- **Nodemailer** for easy email integration.
+- **node-cron** for reliable scheduling.
 ```
 
 ---
 
-### API Endpoints
+### Explanation of Key Sections
 
-#### User Management
+- **Features**: Highlights the core gameplay elements to give potential contributors or players an overview.
+- **Installation**: Provides step-by-step setup instructions for local development.
+- **Game Mechanics**: Breaks down the main components like achievements, missions, and the global economy, explaining each in a way that’s easy to understand.
+- **API Endpoints**: Lists key API endpoints for interacting with the game, making it easier for developers to test or extend the game.
+- **Contributing**: Guides potential contributors on how to make improvements to the project.
+- **License**: Mentions that the project is under the GNU AGPLv3 license, linking to the full license file.
 
-- **`POST /api/users/register`**  
-  Register a new player. Returns a user object with starting credits and points.
-
-#### Link Management
-
-- **`GET /api/links/random-link`**  
-  Retrieves a random link from the database for the player to view and potentially claim.
-
-- **`POST /api/links/claim`**  
-  Allows the player to claim ownership of a link, adding it to their empire.
-
-- **`POST /api/links/visit`**  
-  Simulates another player visiting a claimed link, transferring a toll to the link owner.
-
-#### Leaderboard
-
-- **`GET /api/leaderboard`**  
-  Retrieves the top 10 players based on points.
-
----
-
-### Contributing
-
-Contributions are welcome! To contribute:
-
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/new-feature`).
-3. Commit your changes (`git commit -m 'Add new feature'`).
-4. Push to the branch (`git push origin feature/new-feature`).
-5. Open a pull request.
-
----
-
-### License
-
-This project is licensed under the GNUAGPL3 License.
-
----
-
-Feel free to edit and amend this README as the project evolves / as you desire.
+This `README.md will be updated as the same TXT file.

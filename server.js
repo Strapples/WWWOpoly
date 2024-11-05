@@ -2,6 +2,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+require('./utils/dailydigest');
 
 // Load environment variables
 dotenv.config();
