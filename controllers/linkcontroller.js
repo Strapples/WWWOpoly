@@ -20,7 +20,9 @@ exports.claimLink = async (req, res) => {
         if (link && !link.owner) {
             link.owner = userId;
             await link.save();
-            await User.findByIdAndUpdate(userId, { $inc: { points: 10 } });
+
+            // Update user's sitesOwned count and points
+            await User.findByIdAndUpdate(userId, { $inc: { points: 10, sitesOwned: 1 } });
             res.json({ success: true, message: 'Link claimed!' });
         } else {
             res.status(400).json({ success: false, message: 'Link already owned or not found' });
@@ -38,11 +40,18 @@ exports.visitLink = async (req, res) => {
         if (link && link.owner) {
             const owner = await User.findById(link.owner);
             const visitor = await User.findById(visitorId);
-            if (visitor.credits > 1) {
-                visitor.credits -= 1;
-                owner.credits += 1;
+
+            if (visitor.credits >= link.toll) {
+                // Deduct toll from visitor and credit owner
+                visitor.credits -= link.toll;
+                owner.credits += link.toll;
+
+                // Update metrics for visitor and owner
+                visitor.sitesVisited += 1;
+                visitor.creditsSpent += link.toll;
                 await visitor.save();
                 await owner.save();
+
                 res.json({ success: true, message: 'Toll paid' });
             } else {
                 res.status(400).json({ message: 'Insufficient credits' });
@@ -67,7 +76,9 @@ exports.addAndClaimLink = async (req, res) => {
         const newLink = new Link({ url, toll, owner: userId });
         await newLink.save();
 
-        user.points += 10; // Award points for adding a link
+        // Increment user's sitesOwned count and points
+        user.points += 10; // Reward points for adding a link
+        user.sitesOwned += 1;
         await user.save();
 
         res.status(201).json({ message: 'Link added and claimed successfully', link: newLink });
@@ -118,9 +129,11 @@ exports.tradeLink = async (req, res) => {
 
         // Deduct the 5-credit market fee from the current owner
         currentOwner.credits -= 5;
+        currentOwner.tradesCount += 1; // Increment trade count for current owner
 
         // Deduct the trade price from the new owner's credits
         newOwner.credits -= price;
+        newOwner.tradesCount += 1; // Increment trade count for new owner
         
         // Transfer ownership of the link
         link.owner = newOwnerId;
