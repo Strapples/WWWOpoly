@@ -1,11 +1,12 @@
 // controllers/linkcontroller.js
+const mongoose = require('mongoose');
 const Link = require('../models/link');
 const User = require('../models/user');
-const PendingCategory = require('../models/pendingcategory'); // Model for pending categories
-const GlobalEconomy = require('../models/globaleconomy'); // For daily traffic multipliers
+const PendingCategory = require('../models/pendingcategory');
+const GlobalEconomy = require('../models/globaleconomy');
 const checkAchievements = require('../utils/achievementcheck');
 const { calculateUpgradeCost, calculateClaimCost } = require('./globaleconomycontroller');
-const Transaction = require('../models/transaction'); // For marketplace transactions
+const Transaction = require('../models/transaction');
 
 // Define allowed categories for links
 const validCategories = ['News', 'Sports', 'Education', 'Entertainment', 'Shopping'];
@@ -26,7 +27,8 @@ exports.claimLink = async (req, res) => {
     try {
         const link = await Link.findById(linkId);
         if (link && !link.owner) {
-            const user = await User.findById(userId);
+            const objectIdUserId = mongoose.Types.ObjectId(userId);
+            const user = await User.findById(objectIdUserId);
             
             const claimCost = await calculateClaimCost();
             if (user.points < claimCost) {
@@ -99,7 +101,8 @@ exports.visitLink = async (req, res) => {
 exports.addAndClaimLink = async (req, res) => {
     const { userId, url, toll = 1, category } = req.body;
     try {
-        const user = await User.findById(userId);
+        const objectIdUserId = mongoose.Types.ObjectId(userId); // Ensure userId is an ObjectId
+        const user = await User.findById(objectIdUserId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const claimCost = await calculateClaimCost();
@@ -109,7 +112,6 @@ exports.addAndClaimLink = async (req, res) => {
 
         // Check if the category is in the predefined list
         if (!validCategories.includes(category)) {
-            // If the category is not valid, create a pending request
             const existingRequest = await PendingCategory.findOne({ name: category });
             if (existingRequest) {
                 return res.status(400).json({ message: 'Category already pending approval' });

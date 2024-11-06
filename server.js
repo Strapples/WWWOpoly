@@ -1,10 +1,9 @@
 // server.js
 const express = require('express');
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const bodyParser = require('body-parser');
-
 dotenv.config();
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
 
 const app = express();
 app.use(bodyParser.json());
