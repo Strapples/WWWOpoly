@@ -6,34 +6,34 @@ const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    points: { type: Number, default: 0 },
-    credits: { type: Number, default: 100 },
-    sitesOwned: { type: Number, default: 0 },
-    tradesCount: { type: Number, default: 0 },
-    sitesVisited: { type: Number, default: 0 },
-    creditsSpent: { type: Number, default: 0 },
-    upgradesMade: { type: Number, default: 0 },
-    achievements: { type: [String], default: [] },  // Unlocked achievements by ID
-    
-    // Email Preferences: stores user notification settings as an object
-    emailPreferences: {
-        dailyMissions: { type: Boolean, default: true },     // Notify about daily missions
-        achievements: { type: Boolean, default: true },      // Notify when achievements are unlocked
-        tradeNotifications: { type: Boolean, default: true }, // Notify about trades or site visits
-        dailyDigest: { type: Boolean, default: true }        // Daily summary of link activity
-    },
-
-    // Daily Mission Progress Tracking
-    linksCreatedToday: { type: Number, default: 0 },
-    linksVisitedToday: { type: Number, default: 0 },
-    tradesMadeToday: { type: Number, default: 0 },
-    deadLinksReportedToday: { type: Number, default: 0 },
-
-    // Last Daily Reset Timestamp (in UTC)
-    dailyReset: { type: Date, default: new Date(Date.UTC(1970, 0, 1)) } // Initialized to epoch time
+    credits: { type: Number, default: 0 },          // In-game currency
+    points: { type: Number, default: 0 },           // Additional in-game points
+    sitesOwned: { type: Number, default: 0 },       // Number of links owned
+    upgradesMade: { type: Number, default: 0 },     // Number of upgrades made
+    sitesVisited: { type: Number, default: 0 },     // Number of sites visited
+    tradesCount: { type: Number, default: 0 },      // Total trades made
+    creditsSpent: { type: Number, default: 0 },     // Total credits spent in the game
+    dailyTollsEarned: { type: Number, default: 0 }, // Daily toll earnings
+    linksCreatedToday: { type: Number, default: 0 },// Links created today (daily mission tracking)
+    linksVisitedToday: { type: Number, default: 0 },// Links visited today (daily mission tracking)
+    tradesMadeToday: { type: Number, default: 0 },  // Trades made today (daily mission tracking)
+    dailyVisits: { type: Number, default: 0 },      // Daily link visits count
+    dailyTollsEarned: { type: Number, default: 0 }, // Total daily tolls earned
+    reputation: { type: Number, default: 0 },       // Seller reputation rating (for marketplace)
+    ratingsCount: { type: Number, default: 0 },     // Number of ratings received
+    achievements: [{                                // Array of achievements unlocked by the user
+        title: String,
+        description: String,
+        unlockedAt: { type: Date, default: Date.now }
+    }],
+    emailPreferences: {                             // Email preferences for notifications
+        dailyDigest: { type: Boolean, default: true },
+        achievementNotifications: { type: Boolean, default: true },
+        marketplaceNotifications: { type: Boolean, default: true }
+    }
 }, { timestamps: true });
 
-// Hash password before saving
+// Hash the password before saving the user model
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) return next();
     const salt = await bcrypt.genSalt(10);
@@ -41,27 +41,16 @@ userSchema.pre('save', async function (next) {
     next();
 });
 
-// Method to check if daily missions need to be reset (using UTC)
-userSchema.methods.resetDailyMissions = async function () {
-    const nowUTC = new Date(Date.now());
-    const lastReset = this.dailyReset;
-    const isSameDay = (
-        nowUTC.getUTCFullYear() === lastReset.getUTCFullYear() &&
-        nowUTC.getUTCMonth() === lastReset.getUTCMonth() &&
-        nowUTC.getUTCDate() === lastReset.getUTCDate()
-    );
+// Password validation method
+userSchema.methods.isPasswordMatch = async function (password) {
+    return bcrypt.compare(password, this.password);
+};
 
-    if (!isSameDay) {
-        // Reset daily mission fields
-        this.linksCreatedToday = 0;
-        this.linksVisitedToday = 0;
-        this.tradesMadeToday = 0;
-        this.deadLinksReportedToday = 0;
-
-        // Update the dailyReset timestamp to the current date
-        this.dailyReset = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), nowUTC.getUTCDate()));
-        await this.save();
-    }
+// Method to update reputation
+userSchema.methods.updateReputation = async function(newRating) {
+    this.reputation = ((this.reputation * this.ratingsCount) + newRating) / (this.ratingsCount + 1);
+    this.ratingsCount += 1;
+    await this.save();
 };
 
 module.exports = mongoose.model('User', userSchema);
