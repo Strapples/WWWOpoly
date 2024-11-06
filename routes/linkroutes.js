@@ -1,13 +1,13 @@
 // routes/linkroutes.js
 const express = require('express');
-const { getRandomLink, claimLink, visitLink, addAndClaimLink, tradeLink, upgradeLink } = require('../controllers/linkcontroller');
 const router = express.Router();
+const linkController = require('../controllers/linkcontroller');
 
-router.get('/random-link', getRandomLink);
-router.post('/claim', claimLink);
-router.post('/visit', visitLink);
-router.post('/add', addAndClaimLink);
-router.post('/trade', tradeLink);
-router.post('/upgrade', upgradeLink); // New route for upgrading links
+// Define routes related to links
+router.post('/add', linkController.addAndClaimLink);
+router.post('/claim', linkController.claimLink);
+router.post('/visit', linkController.visitLink);
+router.post('/trade', linkController.tradeLink);
+router.post('/upgrade', linkController.upgradeLink);
 
 module.exports = router;

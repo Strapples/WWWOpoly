@@ -1,12 +1,14 @@
 // controllers/linkcontroller.js
 const Link = require('../models/link');
 const User = require('../models/user');
-const GlobalEconomy = require('../models/globaleconomy'); // To access daily traffic multipliers
+const PendingCategory = require('../models/pendingcategory'); // Model for pending categories
+const GlobalEconomy = require('../models/globaleconomy'); // For daily traffic multipliers
 const checkAchievements = require('../utils/achievementcheck');
+const { calculateUpgradeCost, calculateClaimCost } = require('./globaleconomycontroller');
 const Transaction = require('../models/transaction'); // For marketplace transactions
 
-// Utility to calculate claim costs and upgrades
-const { calculateUpgradeCost, calculateClaimCost } = require('./globaleconomycontroller');
+// Define allowed categories for links
+const validCategories = ['News', 'Sports', 'Education', 'Entertainment', 'Shopping'];
 
 // Get a random link from the database
 exports.getRandomLink = async (req, res) => {
@@ -93,9 +95,9 @@ exports.visitLink = async (req, res) => {
     }
 };
 
-// Add and automatically claim a new link
+// Add and automatically claim a new link with user-provided category
 exports.addAndClaimLink = async (req, res) => {
-    const { userId, url, toll = 1 } = req.body;
+    const { userId, url, toll = 1, category } = req.body;
     try {
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
@@ -105,7 +107,21 @@ exports.addAndClaimLink = async (req, res) => {
             return res.status(400).json({ message: `Insufficient points to claim. Cost: ${claimCost} points.` });
         }
 
-        const category = await categorizeWebsite(url); // Placeholder for automatic categorization
+        // Check if the category is in the predefined list
+        if (!validCategories.includes(category)) {
+            // If the category is not valid, create a pending request
+            const existingRequest = await PendingCategory.findOne({ name: category });
+            if (existingRequest) {
+                return res.status(400).json({ message: 'Category already pending approval' });
+            }
+
+            const newPendingCategory = new PendingCategory({ name: category, suggestedBy: userId });
+            await newPendingCategory.save();
+
+            return res.status(202).json({ message: `Category "${category}" submitted for approval.` });
+        }
+
+        // If the category is valid, proceed with adding the link
         const newLink = new Link({ url, toll, owner: userId, category });
 
         await newLink.save();
@@ -197,11 +213,4 @@ exports.upgradeLink = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: 'Error upgrading link', error });
     }
-};
-
-// Utility for categorizing website (placeholder)
-const categorizeWebsite = async (url) => {
-    // Implement actual categorization logic with an external API
-    const categories = ['News', 'Sports', 'Education', 'Entertainment', 'Shopping'];
-    return categories[Math.floor(Math.random() * categories.length)];
 };
