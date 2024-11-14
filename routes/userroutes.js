@@ -42,7 +42,7 @@ router.get('/:userId/profile', userController.getProfile);
 // Route for uploading profile image
 router.post('/:userId/uploadProfileImage', upload.single('avatar'), userController.uploadProfileImage);
 
-// Route for registration
+// Register user with optional referral code
 router.post('/register', userController.registerUser);
 
 // Route for login

@@ -35,9 +35,9 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter });
 
-// Register a new user
+// Register a new user with optional referral code
 exports.registerUser = async (req, res) => {
-    const { username, email, password } = req.body;
+    const { username, email, password, referralCode } = req.body;
 
     try {
         if (await User.findOne({ email })) return res.status(400).json({ message: 'Email is already in use' });
@@ -45,11 +45,53 @@ exports.registerUser = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ username, email, password: hashedPassword });
-        await newUser.save();
 
+        // If a referral code is provided, find the referrer and update their referral count
+        if (referralCode) {
+            const referrer = await User.findOne({ referralCode });
+            if (referrer) {
+                referrer.credits += 100; // Reward for referral
+                await referrer.save();
+                notificationController.createNotification(referrer._id, `You referred a new user! You’ve earned 100 credits.`, 'referral');
+            }
+        }
+        await newUser.save();
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error registering user', error });
+    }
+};
+const notificationController = require('./notificationcontroller');
+
+exports.registerUser = async (req, res) => {
+  
+    if (referralCode) {
+        const referrer = await User.findOne({ referralCode });
+        if (referrer) {
+            referrer.credits += 100; // Reward for referral
+            await referrer.save();
+            notificationController.createNotification(referrer._id, `You referred a new user! You’ve earned 100 credits.`, 'referral');
+        }
+    }
+};
+
+// Generate referral code for user
+exports.generateReferralCode = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Generate a unique referral code if it doesn't exist
+        if (!user.referralCode) {
+            user.referralCode = crypto.randomBytes(4).toString('hex');
+            await user.save();
+        }
+
+        res.status(200).json({ referralCode: user.referralCode });
+    } catch (error) {
+        res.status(500).json({ message: 'Error generating referral code', error });
     }
 };
 
@@ -102,22 +144,7 @@ exports.requestPasswordReset = async (req, res) => {
     }
 };
 
-exports.resetPassword = async (req, res) => {
-    const { resetToken, newPassword } = req.body;
-    try {
-        const user = await User.findOne({ resetToken, resetTokenExpiration: { $gt: Date.now() } });
-        if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
-
-        user.password = await bcrypt.hash(newPassword, 10);
-        user.resetToken = undefined;
-        user.resetTokenExpiration = undefined;
-        await user.save();
-
-        res.json({ message: 'Password updated successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error resetting password', error });
-    }
-};
+// Other existing functions...
 
 // Update user profile
 exports.updateProfile = async (req, res) => {
@@ -162,11 +189,68 @@ exports.getProfile = async (req, res) => {
     const { userId } = req.params;
 
     try {
-        const user = await User.findById(userId).select('username avatar points credits sitesOwned preferredLeaderboard');
+        const user = await User.findById(userId).select('username avatar points credits sitesOwned preferredLeaderboard referralCode');
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         res.status(200).json({ user });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving profile', error });
+    }
+};
+
+// Extended Get Leaderboard based on different metrics and time frames
+exports.getLeaderboard = async (req, res) => {
+    const { metric, timeFrame } = req.query;
+
+    let sortField;
+    switch (metric) {
+        case 'points':
+            sortField = 'points';
+            break;
+        case 'sitesOwned':
+            sortField = 'sitesOwned';
+            break;
+        case 'credits':
+            sortField = 'credits';
+            break;
+        case 'tradesCount':
+            sortField = 'tradesCount';
+            break;
+        case 'sitesVisited':
+            sortField = 'sitesVisited';
+            break;
+        case 'creditsSpent':
+            sortField = 'creditsSpent';
+            break;
+        case 'creditsEarned':
+            sortField = 'creditsEarned';
+            break;
+        case 'upgradesPerformed':
+            sortField = 'upgradesPerformed';
+            break;
+        case 'achievementsUnlocked':
+            sortField = 'achievementsUnlocked';
+            break;
+        default:
+            return res.status(400).json({ message: 'Invalid leaderboard metric' });
+    }
+
+    let dateFilter = {};
+    if (timeFrame) {
+        const now = new Date();
+        if (timeFrame === 'weekly') {
+            dateFilter = { updatedAt: { $gte: new Date(now - 7 * 24 * 60 * 60 * 1000) } };
+        } else if (timeFrame === 'monthly') {
+            dateFilter = { updatedAt: { $gte: new Date(now - 30 * 24 * 60 * 60 * 1000) } };
+        } else {
+            return res.status(400).json({ message: 'Invalid time frame specified' });
+        }
+    }
+
+    try {
+        const leaderboard = await User.find(dateFilter).sort({ [sortField]: -1 }).limit(10);
+        res.json({ leaderboard, metric, timeFrame });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving leaderboard', error });
     }
 };

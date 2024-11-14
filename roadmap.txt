@@ -78,12 +78,9 @@ Potential Future Features and Advanced Enhancements
 
 Immediate Next Steps
 Based on this refined roadmap:
-1. Complete Special Event Links Implementation (current priority, WIP).
-2. Implement User Profiles and Leaderboard Customization.
-3. Develop Global Economy System and integrate basic analytics to monitor in-game metrics.
-4. Begin Referral System Implementation.
-This sequence should ensure we’re staying on track and building out features in a logical progression. Let’s focus on Special Event Links tomorrow, followed by User Profiles and Leaderboards.
-Thanks for catching that; this should keep everything aligned! Let me know if there’s anything else you’d like to add or adjust in this consolidated roadmap
+1. Complete Special Event Links Implementation (Done)
+2. Implement User Profiles and Leaderboard Customization. (done)
+3. Develop Global Economy System and integrate basic analytics to monitor in-game metrics. (done/partial)
+4. Begin Referral System Implementation. (done)
 
-
-Abandoning the project, enjoy, whoever wants take over go right ahead and fork it. Probably not going to be updating this codebase any further.
+Nothing is tested!
