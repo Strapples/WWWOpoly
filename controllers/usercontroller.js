@@ -4,18 +4,47 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const { sendNotification } = require('../utils/notifications');
+const checkAchievements = require('../utils/achievementcheck');
+
+// Configure multer for profile picture upload
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/avatars';
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid file type. Only images are allowed.'), false);
+    }
+};
+
+const upload = multer({ storage, fileFilter });
 
 // Register a new user
 exports.registerUser = async (req, res) => {
     const { username, email, password } = req.body;
 
     try {
-        // Check if email or username is already taken
         if (await User.findOne({ email })) return res.status(400).json({ message: 'Email is already in use' });
         if (await User.findOne({ username })) return res.status(400).json({ message: 'Username is already in use' });
 
-        const newUser = new User({ username, email, password });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = new User({ username, email, password: hashedPassword });
         await newUser.save();
 
         res.status(201).json({ message: 'User registered successfully' });
@@ -35,7 +64,6 @@ exports.loginUser = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
 
-        // Generate JWT token
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.json({ message: 'Login successful', token });
     } catch (error) {
@@ -43,20 +71,18 @@ exports.loginUser = async (req, res) => {
     }
 };
 
-// Generate password reset token and send email
+// Password reset
 exports.requestPasswordReset = async (req, res) => {
     const { email } = req.body;
     try {
         const user = await User.findOne({ email });
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        // Generate reset token
         const resetToken = crypto.randomBytes(32).toString('hex');
         user.resetToken = resetToken;
-        user.resetTokenExpiration = Date.now() + 3600000; // 1 hour expiration
+        user.resetTokenExpiration = Date.now() + 3600000;
         await user.save();
 
-        // Send email (using nodemailer)
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -76,14 +102,13 @@ exports.requestPasswordReset = async (req, res) => {
     }
 };
 
-// Reset password
 exports.resetPassword = async (req, res) => {
     const { resetToken, newPassword } = req.body;
     try {
         const user = await User.findOne({ resetToken, resetTokenExpiration: { $gt: Date.now() } });
         if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
 
-        user.password = newPassword;
+        user.password = await bcrypt.hash(newPassword, 10);
         user.resetToken = undefined;
         user.resetTokenExpiration = undefined;
         await user.save();
@@ -94,50 +119,54 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
-// Update user email notification preferences
-exports.updateEmailPreferences = async (req, res) => {
-    const { userId, emailPreferences } = req.body;
+// Update user profile
+exports.updateProfile = async (req, res) => {
+    const { userId } = req.params;
+    const { preferredLeaderboard } = req.body;
 
     try {
-        const user = await User.findByIdAndUpdate(userId, { emailPreferences }, { new: true });
-        res.json({ message: 'Email preferences updated', user });
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        if (preferredLeaderboard) user.preferredLeaderboard = preferredLeaderboard;
+        await user.save();
+
+        res.status(200).json({ message: 'Profile updated successfully', user });
     } catch (error) {
-        res.status(500).json({ message: 'Error updating email preferences', error });
+        res.status(500).json({ message: 'Error updating profile', error });
     }
 };
 
-// Get leaderboard based on different metrics
-exports.getLeaderboard = async (req, res) => {
-    const { metric } = req.query; // Pass the metric as a query parameter (e.g., points, sitesOwned, tradesCount, etc.)
-
-    let sortField;
-    switch (metric) {
-        case 'points':
-            sortField = 'points';
-            break;
-        case 'sitesOwned':
-            sortField = 'sitesOwned';
-            break;
-        case 'credits':
-            sortField = 'credits';
-            break;
-        case 'tradesCount':
-            sortField = 'tradesCount';
-            break;
-        case 'sitesVisited':
-            sortField = 'sitesVisited';
-            break;
-        case 'creditsSpent':
-            sortField = 'creditsSpent';
-            break;
-        default:
-            return res.status(400).json({ message: 'Invalid leaderboard metric' });
-    }
+// Upload user profile picture
+exports.uploadProfilePicture = async (req, res) => {
+    const { userId } = req.params;
 
     try {
-        const leaderboard = await User.find().sort({ [sortField]: -1 }).limit(10);
-        res.json(leaderboard);
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        if (req.file) {
+            user.avatar = req.file.path;
+            await user.save();
+            res.status(200).json({ message: 'Profile picture uploaded successfully', user });
+        } else {
+            res.status(400).json({ message: 'No file uploaded' });
+        }
     } catch (error) {
-        res.status(500).json({ message: 'Error retrieving leaderboard', error });
+        res.status(500).json({ message: 'Error uploading profile picture', error });
+    }
+};
+
+// Retrieve a user's profile
+exports.getProfile = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId).select('username avatar points credits sitesOwned preferredLeaderboard');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        res.status(200).json({ user });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving profile', error });
     }
 };

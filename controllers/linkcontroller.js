@@ -4,12 +4,37 @@ const Link = require('../models/link');
 const User = require('../models/user');
 const PendingCategory = require('../models/pendingcategory');
 const GlobalEconomy = require('../models/globaleconomy');
+const IndustryEvent = require('../models/industryevent'); // Import industry events model
 const checkAchievements = require('../utils/achievementcheck');
 const { calculateUpgradeCost, calculateClaimCost } = require('./globaleconomycontroller');
 const Transaction = require('../models/transaction');
 
 // Define allowed categories for links
 const validCategories = ['News', 'Sports', 'Education', 'Entertainment', 'Shopping'];
+
+// Helper function to calculate toll with potential industry event multiplier
+async function calculateToll(link) {
+    let toll = link.baseToll || link.toll;
+
+    // Check for an active event affecting this link's category
+    const activeEvent = await IndustryEvent.findOne({
+        category: link.category,
+        isActive: true,
+        startDate: { $lte: new Date() },
+        endDate: { $gte: new Date() },
+    });
+
+    // Apply the effect if there’s an active event
+    if (activeEvent) {
+        if (activeEvent.effectType === 'boost') {
+            toll *= activeEvent.effectMultiplier;
+        } else if (activeEvent.effectType === 'penalty') {
+            toll *= (1 - (activeEvent.effectMultiplier - 1)); // e.g., 0.85 for a 15% penalty
+        }
+    }
+
+    return toll;
+}
 
 // Get a random link from the database
 exports.getRandomLink = async (req, res) => {
@@ -64,18 +89,15 @@ exports.visitLink = async (req, res) => {
         const link = await Link.findById(linkId).populate('owner');
         if (!link) return res.status(404).json({ message: 'Link not found' });
 
-        const globalEconomy = await GlobalEconomy.findOne();
-        let toll = link.toll;
-
-        if (link.category === globalEconomy.dailyCategory) {
-            toll *= globalEconomy.dailyMultiplier;
-        }
+        // Calculate toll with event adjustments
+        const toll = await calculateToll(link);
 
         const visitor = await User.findById(visitorId);
         if (visitor.credits < toll) {
             return res.status(400).json({ message: 'Insufficient credits' });
         }
 
+        // Deduct toll from visitor and add it to the link owner's credits
         visitor.credits -= toll;
         link.owner.credits += toll;
 
@@ -90,7 +112,7 @@ exports.visitLink = async (req, res) => {
             success: true,
             message: 'Toll paid',
             toll,
-            multiplier: globalEconomy.dailyMultiplier
+            multiplier: activeEvent ? activeEvent.effectMultiplier : 1,
         });
     } catch (error) {
         res.status(500).json({ message: 'Error visiting link', error });
@@ -101,7 +123,7 @@ exports.visitLink = async (req, res) => {
 exports.addAndClaimLink = async (req, res) => {
     const { userId, url, toll = 1, category } = req.body;
     try {
-        const objectIdUserId = mongoose.Types.ObjectId(userId); // Ensure userId is an ObjectId
+        const objectIdUserId = mongoose.Types.ObjectId(userId);
         const user = await User.findById(objectIdUserId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 

@@ -18,8 +18,9 @@ const userSchema = new mongoose.Schema({
     linksVisitedToday: { type: Number, default: 0 },// Links visited today (daily mission tracking)
     tradesMadeToday: { type: Number, default: 0 },  // Trades made today (daily mission tracking)
     dailyVisits: { type: Number, default: 0 },      // Daily link visits count
-    dailyTollsEarned: { type: Number, default: 0 }, // Total daily tolls earned
     reputation: { type: Number, default: 0 },       // Seller reputation rating (for marketplace)
+    avatar: { type: String, default: '' },          // Avatar URL
+    preferredLeaderboard: { type: [String], default: ['credits', 'sitesOwned'] }, // Preferred leaderboard stats
     ratingsCount: { type: Number, default: 0 },     // Number of ratings received
     achievements: [{                                // Array of achievements unlocked by the user
         title: String,

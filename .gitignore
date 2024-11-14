@@ -33,3 +33,4 @@ build/
 # Optional: Ignore sensitive or config files (add as needed)
 config.json
 credentials.json
+uploads/

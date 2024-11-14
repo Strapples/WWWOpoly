@@ -11,6 +11,16 @@ app.use(bodyParser.json());
 // Import routes
 const linkRoutes = require('./routes/linkroutes');
 const adminRoutes = require('./routes/adminroutes');
+const userRoutes = require('./routes/userroutes');
+
+// Use routes
+app.use('/api/users', userRoutes);
+
+// Get other essentials
+require('./utils/eventscheduler');
+
+// Serve static files from 'uploads' directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -22,7 +32,7 @@ app.use('/api/links', linkRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Start the server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 51241;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
