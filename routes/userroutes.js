@@ -6,7 +6,37 @@ const multer = require('multer');
 // Set up multer for file uploads (avatar images)
 const upload = multer({ dest: 'uploads/' });
 
+<<<<<<< HEAD
 // Auth Routes
+=======
+// File filter for images only
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid file type. Only JPEG and PNG are allowed.'), false);
+    }
+};
+
+// Set up multer middleware with storage, fileFilter, and size limits
+const upload = multer({
+    storage,
+    fileFilter,
+    limits: { fileSize: 1024 * 1024 * 2 } // Limit file size to 2MB
+});
+
+// Route to update user profile
+router.put('/:userId/profile', userController.updateProfile);
+
+// Route to get user profile
+router.get('/:userId/profile', userController.getProfile);
+
+// Route for uploading profile image
+router.post('/:userId/uploadProfileImage', upload.single('avatar'), userController.uploadProfileImage);
+
+// Register user with optional referral code
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
 router.post('/register', userController.registerUser);
 router.post('/login', userController.loginUser);
 

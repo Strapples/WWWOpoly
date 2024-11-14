@@ -9,8 +9,15 @@ const hashPassword = (password) => {
     return crypto.createHash('sha256').update(password + salt).digest('hex');
 };
 
+<<<<<<< HEAD
 // Register a new user
 const registerUser = async (req, res) => {
+=======
+const upload = multer({ storage, fileFilter });
+
+// Register a new user with optional referral code
+exports.registerUser = async (req, res) => {
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
     const { username, email, password, referralCode } = req.body;
 
     try {
@@ -20,6 +27,7 @@ const registerUser = async (req, res) => {
         const hashedPassword = hashPassword(password);
         const newUser = new User({ username, email, password: hashedPassword });
 
+<<<<<<< HEAD
         if (referralCode) {
             const referrer = await User.findOne({ referralCode });
             if (referrer) {
@@ -32,8 +40,54 @@ const registerUser = async (req, res) => {
 
         await newUser.save();
         res.status(201).json({ message: 'User registered successfully', username: newUser.username });
+=======
+        // If a referral code is provided, find the referrer and update their referral count
+        if (referralCode) {
+            const referrer = await User.findOne({ referralCode });
+            if (referrer) {
+                referrer.credits += 100; // Reward for referral
+                await referrer.save();
+                notificationController.createNotification(referrer._id, `You referred a new user! You’ve earned 100 credits.`, 'referral');
+            }
+        }
+        await newUser.save();
+        res.status(201).json({ message: 'User registered successfully' });
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
     } catch (error) {
         res.status(500).json({ message: 'Error registering user', error });
+    }
+};
+const notificationController = require('./notificationcontroller');
+
+exports.registerUser = async (req, res) => {
+  
+    if (referralCode) {
+        const referrer = await User.findOne({ referralCode });
+        if (referrer) {
+            referrer.credits += 100; // Reward for referral
+            await referrer.save();
+            notificationController.createNotification(referrer._id, `You referred a new user! You’ve earned 100 credits.`, 'referral');
+        }
+    }
+};
+
+// Generate referral code for user
+exports.generateReferralCode = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Generate a unique referral code if it doesn't exist
+        if (!user.referralCode) {
+            user.referralCode = crypto.randomBytes(4).toString('hex');
+            await user.save();
+        }
+
+        res.status(200).json({ referralCode: user.referralCode });
+    } catch (error) {
+        res.status(500).json({ message: 'Error generating referral code', error });
     }
 };
 
@@ -64,9 +118,17 @@ const getProfile = async (req, res) => {
 
         res.status(200).json({ user });
     } catch (error) {
+<<<<<<< HEAD
         res.status(500).json({ message: 'Error retrieving profile', error });
     }
 };
+=======
+        res.status(500).json({ message: 'Error requesting password reset', error });
+    }
+};
+
+// Other existing functions...
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
 
 // Update user profile
 const updateProfile = async (req, res) => {
@@ -113,7 +175,11 @@ const generateReferralCode = async (req, res) => {
     const { userId } = req.params;
 
     try {
+<<<<<<< HEAD
         const user = await User.findById(userId);
+=======
+        const user = await User.findById(userId).select('username avatar points credits sitesOwned preferredLeaderboard referralCode');
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         if (!user.referralCode) {
@@ -127,6 +193,7 @@ const generateReferralCode = async (req, res) => {
     }
 };
 
+<<<<<<< HEAD
 // View referrals
 const viewReferrals = async (req, res) => {
     const { userId } = req.params;
@@ -200,4 +267,61 @@ module.exports = {
     unlockAchievement,
     getLeaderboard,
     getUserStats,
+=======
+// Extended Get Leaderboard based on different metrics and time frames
+exports.getLeaderboard = async (req, res) => {
+    const { metric, timeFrame } = req.query;
+
+    let sortField;
+    switch (metric) {
+        case 'points':
+            sortField = 'points';
+            break;
+        case 'sitesOwned':
+            sortField = 'sitesOwned';
+            break;
+        case 'credits':
+            sortField = 'credits';
+            break;
+        case 'tradesCount':
+            sortField = 'tradesCount';
+            break;
+        case 'sitesVisited':
+            sortField = 'sitesVisited';
+            break;
+        case 'creditsSpent':
+            sortField = 'creditsSpent';
+            break;
+        case 'creditsEarned':
+            sortField = 'creditsEarned';
+            break;
+        case 'upgradesPerformed':
+            sortField = 'upgradesPerformed';
+            break;
+        case 'achievementsUnlocked':
+            sortField = 'achievementsUnlocked';
+            break;
+        default:
+            return res.status(400).json({ message: 'Invalid leaderboard metric' });
+    }
+
+    let dateFilter = {};
+    if (timeFrame) {
+        const now = new Date();
+        if (timeFrame === 'weekly') {
+            dateFilter = { updatedAt: { $gte: new Date(now - 7 * 24 * 60 * 60 * 1000) } };
+        } else if (timeFrame === 'monthly') {
+            dateFilter = { updatedAt: { $gte: new Date(now - 30 * 24 * 60 * 60 * 1000) } };
+        } else {
+            return res.status(400).json({ message: 'Invalid time frame specified' });
+        }
+    }
+
+    try {
+        const leaderboard = await User.find(dateFilter).sort({ [sortField]: -1 }).limit(10);
+        res.json({ leaderboard, metric, timeFrame });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving leaderboard', error });
+    }
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
 };

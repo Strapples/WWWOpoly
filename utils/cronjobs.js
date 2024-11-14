@@ -1,7 +1,15 @@
+<<<<<<< HEAD
 // Clean up expired notifications 
 const cron = require('node-cron');
 const path = require('path');
 const { purgeExpiredNotifications } = require('../controllers/notificationcontroller');
+=======
+// CronJobs all
+
+// Clean up expired notifications 
+const cron = require('node-cron');
+const { purgeExpiredNotifications } = require('./controllers/notificationcontroller');
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
 
 // Run daily at midnight
 cron.schedule('0 0 * * *', () => {
@@ -133,6 +141,7 @@ cron.schedule('0 0 * * *', async () => {
 cron.schedule('0 0 * * 0', async () => {
     console.log('Applying weekly maintenance fees...');
     await applyMaintenanceFees();
+<<<<<<< HEAD
 });
 // Fuel checker
 const Generator = require('../models/generator');
@@ -175,3 +184,6 @@ cron.schedule('0 * * * *', async () => {
 });
 
 module.exports = cron;
+=======
+});
+>>>>>>> 6f96e03 (Add tournament and industry event routes; implement daily notification purge and achievement unlock notifications)
