@@ -77,11 +77,12 @@ exports.registerUser = async (req, res) => {
             }
         }
         await newUser.save();
-        res.status(201).json({ message: 'User registered successfully' });
+        res.status(201).json({ message: 'User registered successfully', username: newUser.username });
     } catch (error) {
-        res.status(500).json({ message: 'Error registering user', error });
+        res.status(500).json({ message: 'Error registering user', error: error.message });
     }
 };
+
 // Generate referral code for user
 exports.generateReferralCode = async (req, res) => {
     const { userId } = req.params;
@@ -161,13 +162,13 @@ exports.getUserStats = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Assuming user stats are stored in the user document
         res.status(200).json({ stats: user.stats });
     } catch (error) {
         console.error('Error retrieving user stats:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
+
 // Update user profile
 exports.updateProfile = async (req, res) => {
     const { userId } = req.params;
