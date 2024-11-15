@@ -10,6 +10,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { sendNotification } = require('../utils/notifications');
 const checkAchievements = require('../utils/achievementcheck');
+const notificationController = require('./notifcationcontroller')
 
 // Configure multer for profile picture upload
 const storage = multer.diskStorage({
@@ -61,20 +62,6 @@ exports.registerUser = async (req, res) => {
         res.status(500).json({ message: 'Error registering user', error });
     }
 };
-const notificationController = require('./notificationcontroller');
-
-exports.registerUser = async (req, res) => {
-  
-    if (referralCode) {
-        const referrer = await User.findOne({ referralCode });
-        if (referrer) {
-            referrer.credits += 100; // Reward for referral
-            await referrer.save();
-            notificationController.createNotification(referrer._id, `You referred a new user! You’ve earned 100 credits.`, 'referral');
-        }
-    }
-};
-
 // Generate referral code for user
 exports.generateReferralCode = async (req, res) => {
     const { userId } = req.params;

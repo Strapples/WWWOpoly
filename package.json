@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "setup": "npm install express mongoose dotenv nodemon"
+  "setup": "npm install express mongoose dotenv nodemon"
   },
   "keywords": [],
   "author": "Alin Straps",
@@ -27,5 +27,5 @@
     "eslint-plugin-prettier": "^5.2.1",
     "prettier": "^3.3.3",
     "supertest": "^7.0.0"
+    }
   }
-}
