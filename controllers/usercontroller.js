@@ -36,6 +36,26 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter });
 
+// Function to handle profile image upload
+exports.uploadProfileImage = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.profileImage = req.file.path;
+        await user.save();
+
+        res.status(200).json({ message: 'Profile image uploaded successfully', profileImage: user.profileImage });
+    } catch (error) {
+        console.error('Error uploading profile image:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 // Register a new user with optional referral code
 exports.registerUser = async (req, res) => {
     const { username, email, password, referralCode } = req.body;
@@ -131,8 +151,23 @@ exports.requestPasswordReset = async (req, res) => {
     }
 };
 
-// Other existing functions...
+// Function to get user stats
+exports.getUserStats = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const user = await User.findById(userId);
 
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Assuming user stats are stored in the user document
+        res.status(200).json({ stats: user.stats });
+    } catch (error) {
+        console.error('Error retrieving user stats:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
 // Update user profile
 exports.updateProfile = async (req, res) => {
     const { userId } = req.params;

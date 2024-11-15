@@ -37,9 +37,6 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopol
 require('./utils/eventscheduler');
 require('./utils/cronjobs'); // This will execute all scheduled tasks in cronjobs.js
 
-// Import notification purge function
-const { purgeExpiredNotifications } = require('./controllers/notificationcontroller');
-
 // Schedule daily purge of expired notifications at midnight
 cron.schedule('0 0 * * *', () => {
     console.log('Running daily notification purge...');

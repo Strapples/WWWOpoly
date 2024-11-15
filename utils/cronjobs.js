@@ -1,5 +1,3 @@
-// CronJobs all
-
 // Clean up expired notifications 
 const cron = require('node-cron');
 const { purgeExpiredNotifications } = require('./controllers/notificationcontroller');
