@@ -1,6 +1,7 @@
 // tests/routes/user.test.js
 const request = require('supertest');
 const app = require('../../server'); // Path to your Express app
+jest.mock('../../utils/cronjobs');
 
 describe('User API', () => {
     it('should register a new user', async () => {

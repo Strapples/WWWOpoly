@@ -1,11 +1,32 @@
 // server.js
 const express = require('express');
+
+// Load wait, because insert test code
+// Omit cron from testing or shit breaks - Best shut off MongoDB too cause that fks it too.
+if (process.env.NODE_ENV !== 'test') {
+    require('./utils/cronjobs');
+}
+if (process.env.NODE_ENV !== 'test') {
+    mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+        .then(() => console.log('MongoDB connected'))
+        .catch(err => console.error('Error connecting to MongoDB:', err));
+}
+// Now continue loading the server (you can trash this code if in production, might speed it up, might do nothing, might break the whole thing YMMV!)
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const path = require('path');
 const cron = require('node-cron');
 
+// Omit cron from testing or shit breaks - Best shut off MongoDB too cause that fks it too.
+if (process.env.NODE_ENV !== 'test') {
+    require('./utils/cronjobs');
+}
+if (process.env.NODE_ENV !== 'test') {
+    mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+        .then(() => console.log('MongoDB connected'))
+        .catch(err => console.error('Error connecting to MongoDB:', err));
+}
 dotenv.config();
 
 const app = express();

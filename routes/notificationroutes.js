@@ -1,7 +1,7 @@
 // routes/notificationroutes.js
 const express = require('express');
 const router = express.Router();
-const notificationController = require('../controllers/notifcationcontroller')
+const notificationController = require('../controllers/notificationcontroller')
 
 // Get all notifications for a user (with optional filter by read status)
 router.get('/:userId', notificationController.getUserNotifications);

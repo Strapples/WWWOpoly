@@ -4,9 +4,10 @@
   "description": "Online multiplayer game with real websites.",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
+    "test": "NODE_ENV=test jest --detectOpenHandles",
   "setup": "npm install express mongoose dotenv nodemon"
-  },
+  
+},
   "keywords": [],
   "author": "Alin Straps",
   "license": "AGPL-3.0-only",
@@ -29,3 +30,4 @@
     "supertest": "^7.0.0"
     }
   }
+  

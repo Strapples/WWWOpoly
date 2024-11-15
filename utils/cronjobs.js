@@ -1,6 +1,7 @@
 // Clean up expired notifications 
 const cron = require('node-cron');
-const { purgeExpiredNotifications } = require('./controllers/notificationcontroller');
+const path = require('path');
+const { purgeExpiredNotifications } = require('../controllers/notificationcontroller');
 
 // Run daily at midnight
 cron.schedule('0 0 * * *', () => {

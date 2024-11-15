@@ -10,7 +10,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { sendNotification } = require('../utils/notifications');
 const checkAchievements = require('../utils/achievementcheck');
-const notificationController = require('./notifcationcontroller')
+const notificationController = require('../controllers/notificationcontroller');
 
 // Configure multer for profile picture upload
 const storage = multer.diskStorage({
