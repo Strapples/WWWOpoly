@@ -1,10 +1,5 @@
-// controllers/usercontroller.js
-
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
 const User = require('../models/user');
 const { sendNotification } = require('../utils/notifications');
 
@@ -59,30 +54,12 @@ const loginUser = async (req, res) => {
     }
 };
 
-// Update user profile
-const updateProfile = async (req, res) => {
-    const { userId } = req.params;
-    const { preferredLeaderboard } = req.body;
-
-    try {
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        if (preferredLeaderboard) user.preferredLeaderboard = preferredLeaderboard;
-        await user.save();
-
-        res.status(200).json({ message: 'Profile updated successfully', user });
-    } catch (error) {
-        res.status(500).json({ message: 'Error updating profile', error });
-    }
-};
-
-// Get user profile
+// View user profile
 const getProfile = async (req, res) => {
     const { userId } = req.params;
 
     try {
-        const user = await User.findById(userId).select('username avatar points credits sitesOwned preferredLeaderboard referralCode achievements');
+        const user = await User.findById(userId).select('username email credits points avatar');
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         res.status(200).json({ user });
@@ -91,21 +68,25 @@ const getProfile = async (req, res) => {
     }
 };
 
-// Configure multer for profile image upload
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/avatars';
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
-});
+// Update user profile
+const updateProfile = async (req, res) => {
+    const { userId } = req.params;
+    const { username, email, avatar } = req.body;
 
-const upload = multer({ storage });
+    try {
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        if (username) user.username = username;
+        if (email) user.email = email;
+        if (avatar) user.avatar = avatar;
+
+        await user.save();
+        res.status(200).json({ message: 'Profile updated successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating profile', error });
+    }
+};
 
 // Upload profile image
 const uploadProfileImage = async (req, res) => {
@@ -118,12 +99,12 @@ const uploadProfileImage = async (req, res) => {
         if (req.file) {
             user.avatar = req.file.path;
             await user.save();
-            res.status(200).json({ message: 'Profile picture uploaded successfully', user });
+            res.status(200).json({ message: 'Profile image uploaded successfully', avatar: user.avatar });
         } else {
             res.status(400).json({ message: 'No file uploaded' });
         }
     } catch (error) {
-        res.status(500).json({ message: 'Error uploading profile picture', error });
+        res.status(500).json({ message: 'Error uploading profile image', error });
     }
 };
 
@@ -146,6 +127,20 @@ const generateReferralCode = async (req, res) => {
     }
 };
 
+// View referrals
+const viewReferrals = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId).populate('referrals', 'username email');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        res.status(200).json({ referrals: user.referrals });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving referrals', error });
+    }
+};
+
 // Unlock achievement
 const unlockAchievement = async (req, res) => {
     const { userId } = req.params;
@@ -155,11 +150,12 @@ const unlockAchievement = async (req, res) => {
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        user.achievements.push({ title, description, unlockedAt: new Date() });
+        const achievement = { title, description, unlockedAt: new Date() };
+        user.achievements.push(achievement);
         await user.save();
+        sendNotification(user._id, 'Achievement Unlocked', `You unlocked the achievement: ${title}`);
 
-        sendNotification(userId, 'Achievement Unlocked', `Congrats! You've unlocked the achievement: ${title}`);
-        res.status(200).json({ message: 'Achievement unlocked successfully', achievements: user.achievements });
+        res.status(200).json({ message: 'Achievement unlocked', achievement });
     } catch (error) {
         res.status(500).json({ message: 'Error unlocking achievement', error });
     }
@@ -167,39 +163,41 @@ const unlockAchievement = async (req, res) => {
 
 // Get leaderboard
 const getLeaderboard = async (req, res) => {
-    const { metric, timeFrame } = req.query;
-
-    let sortField;
-    switch (metric) {
-        case 'points': sortField = 'points'; break;
-        case 'credits': sortField = 'credits'; break;
-        case 'sitesOwned': sortField = 'sitesOwned'; break;
-        default: return res.status(400).json({ message: 'Invalid leaderboard metric' });
-    }
-
-    let dateFilter = {};
-    if (timeFrame === 'weekly') {
-        dateFilter = { updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } };
-    } else if (timeFrame === 'monthly') {
-        dateFilter = { updatedAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } };
-    }
+    const { metric } = req.query;
+    let sortField = metric === 'credits' ? 'credits' : 'points';
 
     try {
-        const leaderboard = await User.find(dateFilter).sort({ [sortField]: -1 }).limit(10);
-        res.json({ leaderboard, metric, timeFrame });
+        const leaderboard = await User.find().sort({ [sortField]: -1 }).limit(10);
+        res.json({ leaderboard, metric });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving leaderboard', error });
     }
 };
 
+// Get user stats
+const getUserStats = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId).select('credits points achievements');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        res.status(200).json({ stats: user });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving user stats', error });
+    }
+};
+
+// Export all controllers
 module.exports = {
     registerUser,
     loginUser,
-    updateProfile,
     getProfile,
+    updateProfile,
     uploadProfileImage,
     generateReferralCode,
+    viewReferrals,
     unlockAchievement,
     getLeaderboard,
-    upload
+    getUserStats,
 };
