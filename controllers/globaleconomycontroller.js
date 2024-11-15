@@ -5,7 +5,7 @@ const GlobalEconomy = require('../models/globaleconomy');
 const { sendNotification } = require('../utils/notifications');
 
 // Adjust toll rates based on link demand
-exports.adjustTollRates = async () => {
+const adjustTollRates = async () => {
     try {
         const links = await Link.find();
         const globalEconomy = await GlobalEconomy.findOne();
@@ -28,21 +28,21 @@ exports.adjustTollRates = async () => {
 };
 
 // Adjust economy state based on total credits in circulation
-exports.adjustEconomyState = async () => {
+const adjustEconomyState = async () => {
     try {
         const globalEconomy = await GlobalEconomy.findOne();
-        const totalCredits = globalEconomy.totalCreditsInCirculation;
+        const users = await User.find();
 
-        if (totalCredits > 1000000) {
-            globalEconomy.economyState = 'Inflationary';
-            globalEconomy.inflationRate = 1.2; // Increase rates during inflation
-        } else if (totalCredits < 500000) {
-            globalEconomy.economyState = 'Deflationary';
-            globalEconomy.deflationRate = 0.8; // Decrease rates during deflation
+        // Calculate total credits in circulation
+        const totalCredits = users.reduce((sum, user) => sum + user.credits, 0);
+
+        // Adjust economy state based on total credits
+        if (totalCredits > 1000000) { // Example threshold
+            globalEconomy.state = 'inflation';
+        } else if (totalCredits < 500000) { // Example threshold
+            globalEconomy.state = 'deflation';
         } else {
-            globalEconomy.economyState = 'Stable';
-            globalEconomy.inflationRate = 1;
-            globalEconomy.deflationRate = 1;
+            globalEconomy.state = 'stable';
         }
 
         await globalEconomy.save();
@@ -52,27 +52,37 @@ exports.adjustEconomyState = async () => {
 };
 
 // Apply maintenance fees on high-level links owned by users
-exports.applyMaintenanceFees = async () => {
+const applyMaintenanceFees = async () => {
     try {
         const users = await User.find();
         const globalEconomy = await GlobalEconomy.findOne();
 
-        users.forEach(async (user) => {
+        for (const user of users) {
             const highLevelLinks = await Link.find({ owner: user._id, level: { $gte: 5 } });
-            const maintenanceFee = highLevelLinks.length * globalEconomy.maintenanceFeeMultiplier; // Adjust fee based on multiplier
+            const maintenanceFee = highLevelLinks.length * globalEconomy.maintenanceFeeMultiplier;
 
-            if (user.credits >= maintenanceFee) {
-                user.credits -= maintenanceFee;
-                await user.save();
+            if (maintenanceFee > 0) {
+                if (user.credits >= maintenanceFee) {
+                    user.credits -= maintenanceFee;
+                    await user.save();
+                } else {
+                    await sendNotification(
+                        user._id,
+                        'Maintenance Fee Unpaid',
+                        `You do not have enough credits to pay the maintenance fee of ${maintenanceFee} credits. Your high-level links are at risk.`
+                    );
+                }
             }
-        });
+        }
+
+        console.log('Maintenance fees applied to users with high-level links.');
     } catch (error) {
         console.error('Error applying maintenance fees:', error);
     }
 };
 
 // Calculate upgrade cost based on the economy state
-exports.calculateUpgradeCost = async (link) => {
+const calculateUpgradeCost = async (link) => {
     const globalEconomy = await GlobalEconomy.findOne();
     let baseCost = link.level * 2; // Base upgrade cost
 
@@ -82,11 +92,11 @@ exports.calculateUpgradeCost = async (link) => {
         baseCost *= globalEconomy.deflationRate; // Adjust for deflation
     }
 
-    return Math.ceil(baseCost);
+    return baseCost;
 };
 
 // Calculate dynamic link claim cost based on total claimed links
-exports.calculateClaimCost = async () => {
+const calculateClaimCost = async () => {
     const totalLinks = await Link.countDocuments();
     let baseCost = 10;
 
@@ -100,7 +110,7 @@ exports.calculateClaimCost = async () => {
 };
 
 // Retrieve leaderboard data for top players
-exports.getLeaderboard = async (req, res) => {
+const getLeaderboard = async (req, res) => {
     try {
         const topTollCollectors = await User.find().sort({ dailyTollsEarned: -1 }).limit(10);
         const topTraders = await User.find().sort({ tradesCount: -1 }).limit(10);
@@ -110,64 +120,50 @@ exports.getLeaderboard = async (req, res) => {
             topTraders
         });
     } catch (error) {
-        res.status(500).json({ message: 'Error retrieving leaderboard', error });
+        console.error('Error retrieving leaderboard data:', error);
+        res.status(500).send('Server Error');
     }
 };
 
-// Contribute to the global fund and check for milestone rewards
-exports.contributeToGlobalFund = async (req, res) => {
-    const { userId, contributionAmount } = req.body;
+// Contribute to the global fund
+const contributeToGlobalFund = async (userId, amount) => {
     try {
         const user = await User.findById(userId);
-        if (user.credits < contributionAmount) {
-            return res.status(400).json({ message: 'Insufficient credits' });
-        }
-
-        // Deduct contribution from user
-        user.credits -= contributionAmount;
-        await user.save();
-
-        // Add to global fund
         const globalEconomy = await GlobalEconomy.findOne();
-        globalEconomy.globalFund += contributionAmount;
 
-        // Check for milestone rewards
-        if (globalEconomy.globalFund >= 100000 && !globalEconomy.reward100k) {
-            await grantMilestoneReward('100k');
-            globalEconomy.reward100k = true;
+        if (user.credits >= amount) {
+            user.credits -= amount;
+            globalEconomy.globalFund += amount;
+
+            await user.save();
+            await globalEconomy.save();
+
+            console.log(`User ${userId} contributed ${amount} credits to the global fund.`);
+        } else {
+            console.log(`User ${userId} does not have enough credits to contribute ${amount} credits to the global fund.`);
         }
-
-        await globalEconomy.save();
-
-        res.status(200).json({ message: 'Contribution successful', globalFund: globalEconomy.globalFund });
     } catch (error) {
-        res.status(500).json({ message: 'Error contributing to global fund', error });
+        console.error('Error contributing to the global fund:', error);
     }
 };
 
-// Grant rewards to all players when a milestone is reached
-async function grantMilestoneReward(milestone) {
-    const users = await User.find();
-    users.forEach(async (user) => {
-        user.credits += 10; // Example reward
-        await user.save();
-    });
-    console.log(`Milestone ${milestone} reward granted to all players.`);
-}
+// Notify players about economy changes
+const notifyEconomyChanges = async () => {
+    try {
+        const globalEconomy = await GlobalEconomy.findOne();
+        let message = 'The global economy has changed!';
 
-// Notify players about global economy changes
-exports.notifyEconomyChanges = async () => {
-    const globalEconomy = await GlobalEconomy.findOne();
-    let message = `Global economy status: ${globalEconomy.economyState}`;
+        if (globalEconomy.economyState === 'Inflationary') {
+            message += ' - Costs are increasing!';
+        } else if (globalEconomy.economyState === 'Deflationary') {
+            message += ' - Costs are decreasing!';
+        }
 
-    if (globalEconomy.economyState === 'Inflationary') {
-        message += ' - Costs are rising!';
-    } else if (globalEconomy.economyState === 'Deflationary') {
-        message += ' - Costs are decreasing!';
+        await sendNotification('global', message);
+        console.log('Notification sent to all players about economy changes.');
+    } catch (error) {
+        console.error('Error notifying players about economy changes:', error);
     }
-
-    await sendNotification('global', message);
-    console.log('Notification sent to all players about economy changes.');
 };
 
 module.exports = {

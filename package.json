@@ -1,19 +1,20 @@
 {
-  "name": "wwwopoly",
-  "version": "0.0.1a",
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "description": "Online multiplayer game with real websites.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "setup": "npm install express mongoose dotenv nodemon"
   },
   "keywords": [],
   "author": "Alin Straps",
   "license": "AGPL-3.0-only",
-  "description": "Online multiplayer game with real websites.",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "jest": "^29.7.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.0",
     "multer": "^1.4.5-lts.1",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
-    "prettier": "^3.3.3"
+    "prettier": "^3.3.3",
+    "supertest": "^7.0.0"
   }
 }

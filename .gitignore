@@ -34,3 +34,6 @@ build/
 config.json
 credentials.json
 uploads/
+logs/
+coverage/
+jest-output/

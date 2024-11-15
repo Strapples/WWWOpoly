@@ -8,6 +8,7 @@ const IndustryEvent = require('../models/industryevent'); // Import industry eve
 const checkAchievements = require('../utils/achievementcheck');
 const { calculateUpgradeCost, calculateClaimCost } = require('./globaleconomycontroller');
 const Transaction = require('../models/transaction');
+const { adjustTollRates } = require('./globaleconomycontroller');
 
 // Define allowed categories for links
 const validCategories = ['News', 'Sports', 'Education', 'Entertainment', 'Shopping'];

@@ -46,6 +46,9 @@ cron.schedule('0 0 * * *', () => {
     purgeExpiredNotifications();
 });
 
+// initialize fuel scheduler
+require('./utils/fuelscheduler'); // Starts fuel consumption scheduler
+
 // Start the server
 const PORT = process.env.PORT || 51241;
 app.listen(PORT, () => {
