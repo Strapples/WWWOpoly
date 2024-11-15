@@ -21,6 +21,7 @@ router.get('/:userId/referrals', userController.viewReferrals);
 
 // Achievement Routes
 router.post('/:userId/achievements', userController.unlockAchievement);
+router.get('/:userId/achievements', userController.getUserAchievements);
 
 // Leaderboard and Stats Routes
 router.get('/leaderboard', userController.getLeaderboard);

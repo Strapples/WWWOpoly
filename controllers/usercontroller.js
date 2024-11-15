@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/user');
 const { sendNotification } = require('../utils/notifications');
+const achievements = require('../utils/achievements');
+
 
 // Helper function to hash password
 const hashPassword = (password) => {
@@ -188,6 +190,59 @@ const getUserStats = async (req, res) => {
     }
 };
 
+// Check and unlock achievements
+const checkAndUnlockAchievements = async (user) => {
+    const unlockedAchievements = user.achievements.map(a => a.achievementId);
+
+    for (const achievement of achievements) {
+        const { id, condition } = achievement;
+        if (unlockedAchievements.includes(id)) continue;
+
+        if (condition(user)) {
+            user.achievements.push({ achievementId: id });
+            console.log(`Achievement Unlocked: ${achievement.title}`);
+        }
+    }
+    await user.save();
+};
+
+// Unlock achievements for the user based on their current progress
+const unlockAchievements = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        await checkAndUnlockAchievements(user);
+
+        res.status(200).json({ message: 'Achievements checked', achievements: user.achievements });
+    } catch (error) {
+        console.error("Error unlocking achievements:", error);
+        res.status(500).json({ message: 'Error unlocking achievements', error });
+    }
+};
+
+// Get the list of achievements unlocked by the user
+const getUserAchievements = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId).select('achievements');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const unlockedAchievements = user.achievements.map(({ achievementId, unlockedAt }) => {
+            const achievement = achievements.find(a => a.id === achievementId);
+            return { title: achievement.title, description: achievement.description, unlockedAt };
+        });
+
+        res.status(200).json({ achievements: unlockedAchievements });
+    } catch (error) {
+        console.error("Error retrieving achievements:", error);
+        res.status(500).json({ message: 'Error retrieving achievements', error });
+    }
+};
+
 // Export all controllers
 module.exports = {
     registerUser,
@@ -200,4 +255,7 @@ module.exports = {
     unlockAchievement,
     getLeaderboard,
     getUserStats,
+    checkAndUnlockAchievements,
+    unlockAchievements,
+    getUserAchievements,
 };
