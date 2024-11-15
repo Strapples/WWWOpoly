@@ -7,7 +7,7 @@ const fs = require('fs');
 const multer = require('multer');
 const User = require('../models/user');
 
-// Helper function to hash password without bcrypt
+// Helper function to hash password
 const hashPassword = (password) => {
     const salt = process.env.SALT || 'default_salt';
     return crypto.createHash('sha256').update(password + salt).digest('hex');
@@ -102,6 +102,20 @@ const getProfile = async (req, res) => {
     }
 };
 
+// Get user stats
+const getUserStats = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId).select('credits points sitesOwned tradesCount dailyVisits');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        res.status(200).json({ stats: user });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving user stats', error });
+    }
+};
+
 // Generate referral code for user
 const generateReferralCode = async (req, res) => {
     const { userId } = req.params;
@@ -177,6 +191,7 @@ module.exports = {
     loginUser,
     updateProfile,
     getProfile,
+    getUserStats,
     generateReferralCode,
     uploadProfileImage,
     viewReferrals,
