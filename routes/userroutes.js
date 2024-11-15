@@ -53,4 +53,7 @@ router.post('/:userId/uploadProfileImage', upload.single('avatar'), userControll
 // Optional route to get user stats
 router.get('/:userId/stats', userController.getUserStats);
 
+// routes/userroutes.js
+router.post('/test-hash', userController.testHashingDirectly);
+
 module.exports = router;

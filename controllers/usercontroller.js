@@ -56,6 +56,7 @@ exports.uploadProfileImage = async (req, res) => {
     }
 };
 
+        
 // Register a new user with optional referral code
 exports.registerUser = async (req, res) => {
     const { username, email, password, referralCode } = req.body;
@@ -64,7 +65,7 @@ exports.registerUser = async (req, res) => {
         if (await User.findOne({ email })) return res.status(400).json({ message: 'Email is already in use' });
         if (await User.findOne({ username })) return res.status(400).json({ message: 'Username is already in use' });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 10); // Hash password once here
         const newUser = new User({ username, email, password: hashedPassword });
 
         // If a referral code is provided, find the referrer and update their referral count
@@ -76,6 +77,7 @@ exports.registerUser = async (req, res) => {
                 notificationController.createNotification(referrer._id, `You referred a new user! You’ve earned 100 credits.`, 'referral');
             }
         }
+
         await newUser.save();
         res.status(201).json({ message: 'User registered successfully', username: newUser.username });
     } catch (error) {
@@ -103,7 +105,7 @@ exports.generateReferralCode = async (req, res) => {
     }
 };
 
-// Login user
+// Login User Controller
 exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
@@ -111,13 +113,20 @@ exports.loginUser = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ message: 'Invalid email or password' });
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        // Use isPasswordMatch to check the password without rehashing
+        const isMatch = await user.isPasswordMatch(password);
         if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
+        userSchema.methods.isPasswordMatch = async function (password) {
+            console.log(`[isPasswordMatch] Comparing plain password: "${password}" with stored hash: "${this.password}"`);
+            const result = await bcrypt.compare(password, this.password);
+            console.log(`[isPasswordMatch] Comparison result for ${this.email}: ${result}`);
+            return result;
+        };
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.json({ message: 'Login successful', token });
     } catch (error) {
-        res.status(500).json({ message: 'Error logging in', error });
+        res.status(500).json({ message: 'Error logging in', error: error.message });
     }
 };
 
