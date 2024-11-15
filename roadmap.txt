@@ -1,0 +1,86 @@
+Consolidated WWWOpoly Roadmap
+Phase 1: Core Game Mechanics
+1. User Registration and Authentication
+    * Secure user registration, login, JWT-based authentication, and basic profile management.
+2. Link Ownership and Claiming System
+    * Users can claim links, pay a toll, and earn income from link ownership.
+    * Planned: Allow custom link categories and an admin approval system for new categories.
+3. Basic Leaderboard System
+    * Implement leaderboards for stats such as most sites owned, credits earned, and achievements unlocked.
+
+Phase 2: Special Event Links (WIP)
+* Description: Introduce rare or special links that grant unique bonuses when claimed or visited.
+* Steps:
+    * Define special properties (e.g., one-time bonus, temporary toll boost, exclusive badge).
+    * Randomly spawn these links, triggered by specific actions (e.g., after a user completes a mission).
+    * Notify users when special links become available to encourage competition.
+* Benefits: Adds excitement and scarcity, encouraging regular player engagement.
+Current Status: WIP — this is the next priority for implementation.
+
+Phase 3: User Profiles and Leaderboard Customization
+1. User Profile Customization
+    * Description: Allow users to personalize profiles, including avatars and preferred leaderboard stats.
+    * Steps:
+        * Add profile fields in the User model for avatar and customization preferences.
+        * Allow users to view other players’ profiles, enhancing social elements and competition.
+    * Benefits: Adds identity and social aspects to the game.
+2. Expanded Leaderboard Options
+    * Enable players to select which leaderboard stats they want to display on their dashboards.
+
+Phase 4: Global Economy and Analytics
+1. Global Economy System
+    * Description: Track in-game economic metrics that affect tolls, upgrade costs, and generator maintenance fees.
+    * Steps:
+        * Set up global economy adjustments based on player activity and overall game metrics.
+        * Implement dynamic inflation/deflation, adjusting costs for gameplay elements.
+    * In-Game Notifications and UI:
+        * Display global economy status, leaderboards, and milestones in the UI.
+        * Notify users about leaderboard rank changes, achievements, and daily missions.
+    * Admin Panel (Optional):
+        * Admin controls for managing economy settings, overseeing leaderboards, and adjusting inflation thresholds.
+    * Testing and Optimization:
+        * Load test database and backend performance, especially for high-read endpoints.
+        * Cache frequently accessed data like leaderboards for improved performance.
+
+Phase 5: Referral System
+* Description: Encourage user growth by rewarding players for inviting friends.
+* Steps:
+    * Generate unique referral codes for users.
+    * Track users who join via referral and reward both inviter and new user.
+* Benefits: Expands the player base and incentivizes active users to bring in new players.
+
+Phase 6: Weekly Tournaments and Prizes
+1. Weekly Tournaments
+    * Description: Set up weekly tournaments based on specific metrics (e.g., most sites visited, highest toll collected).
+    * Steps:
+        * Implement a tournament tracking system that resets each week.
+        * Track stats and rank players in real-time.
+        * Award prizes or badges to top players at the end of each tournament.
+    * Benefits: Adds competition and incentives for regular logins and gameplay.
+
+Phase 7: In-App Purchases and Premium Features
+1. In-App Purchase of Credits
+    * Enable players to purchase in-game credits for real money, facilitating faster progress.
+2. Premium Generators (Solar Generator)
+    * Allow purchase of premium items, like a maintenance-free solar generator with high initial cost but no fuel requirements.
+
+Potential Future Features and Advanced Enhancements
+1. Admin Panel for Moderation
+    * Implement an admin interface to review and manage user reports, flagged or dead links, and manual achievement grants.
+2. Expanded Leaderboard System
+    * Leaderboards for additional categories like most achievements unlocked, credits spent, or links visited.
+3. Social and Friend Features
+    * Enable users to follow each other, view each other’s profiles, and engage socially.
+4. Advanced Analytics and Insights
+    * Provide players with detailed activity analytics (e.g., most visited links, highest toll collections) for better gameplay insights.
+5. Automated Testing Suite
+    * Add unit tests and integration tests for core game functionality to ensure stability as codebase grows.
+
+Immediate Next Steps
+Based on this refined roadmap:
+1. Complete Special Event Links Implementation (Done)
+2. Implement User Profiles and Leaderboard Customization. (done)
+3. Develop Global Economy System and integrate basic analytics to monitor in-game metrics. (done/partial)
+4. Begin Referral System Implementation. (done)
+
+Nothing is tested!
