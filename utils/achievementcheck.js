@@ -1,59 +1,54 @@
-// utils/achievementCheck.js
-const achievements = require('./achievements');  // Import achievements from utils folder
-const User = require('../models/user');          // Import User model to access user data
-const notificationController = require('../controllers/notificationcontroller'); // Import notification controller
+const achievements = require('./achievements');  // Import achievements
+const notificationController = require('../controllers/notificationcontroller'); // Notifications
 
 // Function to check and award achievements
-async function checkAchievements(userId) {
+async function checkAchievements(user) {
     try {
-        const user = await User.findById(userId);
-
         if (!user) {
-            throw new Error('User not found');
+            throw new Error('User object is required');
         }
 
-        // List to keep track of newly unlocked achievements
-        let newAchievements = [];
+        // Track newly unlocked achievements
+        const newAchievements = [];
 
+        // Iterate through all achievements
         achievements.forEach((achievement) => {
-            // Check if user has already unlocked this achievement
-            const alreadyUnlocked = user.achievements.some(ach => ach.id === achievement.id);
+            // Check if the achievement is already unlocked
+            const alreadyUnlocked = user.achievements.some(
+                (ach) => ach.id === achievement.id
+            );
 
-            // Check if the user meets the condition and hasn't unlocked this achievement
+            // Unlock if conditions are met and not already unlocked
             if (!alreadyUnlocked && achievement.condition(user)) {
-                // Add achievement to user's unlocked achievements
-                user.achievements.push({
+                // Add achievement to user's list
+                const unlockedAchievement = {
                     id: achievement.id,
                     title: achievement.title,
                     description: achievement.description,
-                    unlockedAt: new Date()
-                });
+                    unlockedAt: new Date(),
+                };
 
-                newAchievements.push({
-                    id: achievement.id,
-                    title: achievement.title,
-                    description: achievement.description
-                });
+                user.achievements.push(unlockedAchievement);
+                newAchievements.push(unlockedAchievement);
 
-                // Send a notification for the newly unlocked achievement
+                // Send notification for unlocked achievement
                 notificationController.createNotification(
-                    userId,
-                    `Achievement unlocked: ${achievement.title}! - ${achievement.description}`,
+                    user.id,
+                    `Achievement unlocked: ${achievement.title} - ${achievement.description}`,
                     'achievement'
                 );
             }
         });
 
-        // Save user if any new achievements were unlocked
+        // Save the user only if new achievements were unlocked
         if (newAchievements.length > 0) {
             await user.save();
         }
 
-        // Return the list of new achievements (useful for notifying the user)
         return newAchievements;
     } catch (error) {
         console.error('Error checking achievements:', error);
-        return [];
+        throw error;
     }
 }
 

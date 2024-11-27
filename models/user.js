@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
     sitesVisited: { type: Number, default: 0 },
     creditsSpent: { type: Number, default: 0 },
     upgradesMade: { type: Number, default: 0 },
+    points: { type: Number, default: 0 },
     achievements: [achievementSchema]  // Store unlocked achievements
 }, { timestamps: true });
 

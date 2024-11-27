@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const User = require('../models/user');
 const { sendNotification } = require('../utils/notifications');
 const achievements = require('../utils/achievements');
-
+const Achievement = require('../models/Achievement');
 
 // Helper function to hash password
 const hashPassword = (password) => {
@@ -33,9 +33,45 @@ const registerUser = async (req, res) => {
         }
 
         await newUser.save();
-        res.status(201).json({ message: 'User registered successfully', username: newUser.username });
+        await checkAndUnlockAchievements(newUser);
+
+        res.status(201).json({ userId: newUser._id, username: newUser.username });
     } catch (error) {
+        console.error('Error registering user:', error.message);
         res.status(500).json({ message: 'Error registering user', error });
+    }
+};
+
+const generateReferralCode = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        if (!user.referralCode) {
+            user.referralCode = crypto.randomBytes(4).toString('hex');
+            await user.save();
+        }
+
+        res.status(200).json({ referralCode: user.referralCode });
+    } catch (error) {
+        console.error('Error generating referral code:', error.message);
+        res.status(500).json({ message: 'Error generating referral code', error });
+    }
+};
+
+const viewReferrals = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId).populate('referrals', 'username email');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        res.status(200).json({ referrals: user.referrals });
+    } catch (error) {
+        console.error('Error retrieving referrals:', error.message);
+        res.status(500).json({ message: 'Error retrieving referrals', error });
     }
 };
 
@@ -50,8 +86,9 @@ const loginUser = async (req, res) => {
         }
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ message: 'Login successful', token });
+        res.status(200).json({ message: 'Login successful', token });
     } catch (error) {
+        console.error('Error logging in:', error.message);
         res.status(500).json({ message: 'Error logging in', error });
     }
 };
@@ -73,7 +110,7 @@ const getProfile = async (req, res) => {
 // Update user profile
 const updateProfile = async (req, res) => {
     const { userId } = req.params;
-    const { username, email, avatar } = req.body;
+    const { username, email, avatar, preferredLeaderboard } = req.body;
 
     try {
         const user = await User.findById(userId);
@@ -82,11 +119,49 @@ const updateProfile = async (req, res) => {
         if (username) user.username = username;
         if (email) user.email = email;
         if (avatar) user.avatar = avatar;
+        if (preferredLeaderboard) user.preferredLeaderboard = preferredLeaderboard;
 
         await user.save();
-        res.status(200).json({ message: 'Profile updated successfully' });
+        res.status(200).json({
+            message: 'Profile updated successfully',
+            user: {
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar,
+                preferredLeaderboard: user.preferredLeaderboard,
+            },
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error updating profile', error });
+    }
+};
+
+// Check and unlock achievements
+const checkAndUnlockAchievements = async (user) => {
+    try {
+        const unlockedAchievementIds = user.achievements.map((a) => a.achievementId);
+
+        for (const achievement of achievements) {
+            const { id, condition } = achievement;
+            if (unlockedAchievementIds.includes(id)) continue;
+
+            if (condition(user)) {
+                const newAchievement = {
+                    achievementId: id,
+                    title: achievement.title,
+                    description: achievement.description,
+                    unlockedAt: new Date(),
+                };
+
+                await Achievement.create({ ...newAchievement, user: user._id });
+                user.achievements.push(newAchievement);
+            }
+        }
+
+        await user.save();
+    } catch (error) {
+        console.error('Error in checkAndUnlockAchievements:', error.message);
+        throw error;
     }
 };
 
@@ -110,152 +185,110 @@ const uploadProfileImage = async (req, res) => {
     }
 };
 
-// Generate referral code
-const generateReferralCode = async (req, res) => {
-    const { userId } = req.params;
-
-    try {
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        if (!user.referralCode) {
-            user.referralCode = crypto.randomBytes(4).toString('hex');
-            await user.save();
-        }
-
-        res.status(200).json({ referralCode: user.referralCode });
-    } catch (error) {
-        res.status(500).json({ message: 'Error generating referral code', error });
-    }
+// Add this to the module.exports
+module.exports = {
+    // Other controllers
+    uploadProfileImage,
 };
 
-// View referrals
-const viewReferrals = async (req, res) => {
-    const { userId } = req.params;
-
-    try {
-        const user = await User.findById(userId).populate('referrals', 'username email');
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        res.status(200).json({ referrals: user.referrals });
-    } catch (error) {
-        res.status(500).json({ message: 'Error retrieving referrals', error });
-    }
-};
-
-// Unlock achievement
+// Unlock achievements for the user based on their current progress
 const unlockAchievement = async (req, res) => {
     const { userId } = req.params;
-    const { title, description } = req.body;
+    const { achievementId } = req.body;
 
     try {
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const achievement = { title, description, unlockedAt: new Date() };
-        user.achievements.push(achievement);
+        // Unlock the achievement if it hasn’t been unlocked yet
+        const isAlreadyUnlocked = user.achievements.some((a) => a.achievementId === achievementId);
+        if (isAlreadyUnlocked) {
+            return res.status(400).json({ message: 'Achievement already unlocked' });
+        }
+
+        const achievement = achievements.find((a) => a.id === achievementId);
+        if (!achievement) {
+            return res.status(404).json({ message: 'Achievement not found' });
+        }
+
+        user.achievements.push({
+            achievementId: achievement.id,
+            title: achievement.title,
+            description: achievement.description,
+            unlockedAt: new Date(),
+        });
+
         await user.save();
-        sendNotification(user._id, 'Achievement Unlocked', `You unlocked the achievement: ${title}`);
 
         res.status(200).json({ message: 'Achievement unlocked', achievement });
     } catch (error) {
+        console.error('Error unlocking achievement:', error.message);
         res.status(500).json({ message: 'Error unlocking achievement', error });
     }
 };
 
-// Get leaderboard
-const getLeaderboard = async (req, res) => {
-    const { metric } = req.query;
-    let sortField = metric === 'credits' ? 'credits' : 'points';
-
-    try {
-        const leaderboard = await User.find().sort({ [sortField]: -1 }).limit(10);
-        res.json({ leaderboard, metric });
-    } catch (error) {
-        res.status(500).json({ message: 'Error retrieving leaderboard', error });
-    }
-};
-
-// Get user stats
-const getUserStats = async (req, res) => {
-    const { userId } = req.params;
-
-    try {
-        const user = await User.findById(userId).select('credits points achievements');
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        res.status(200).json({ stats: user });
-    } catch (error) {
-        res.status(500).json({ message: 'Error retrieving user stats', error });
-    }
-};
-
-// Check and unlock achievements
-const checkAndUnlockAchievements = async (user) => {
-    const unlockedAchievements = user.achievements.map(a => a.achievementId);
-
-    for (const achievement of achievements) {
-        const { id, condition } = achievement;
-        if (unlockedAchievements.includes(id)) continue;
-
-        if (condition(user)) {
-            user.achievements.push({ achievementId: id });
-            console.log(`Achievement Unlocked: ${achievement.title}`);
-        }
-    }
-    await user.save();
-};
-
-// Unlock achievements for the user based on their current progress
-const unlockAchievements = async (req, res) => {
-    const { userId } = req.params;
-
-    try {
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        await checkAndUnlockAchievements(user);
-
-        res.status(200).json({ message: 'Achievements checked', achievements: user.achievements });
-    } catch (error) {
-        console.error("Error unlocking achievements:", error);
-        res.status(500).json({ message: 'Error unlocking achievements', error });
-    }
-};
-
-// Get the list of achievements unlocked by the user
+// Get user achievements
 const getUserAchievements = async (req, res) => {
-    const { userId } = req.params;
-
     try {
-        const user = await User.findById(userId).select('achievements');
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        const userId = req.params.id || req.user?._id;
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ message: 'Invalid user ID' });
+        }
 
-        const unlockedAchievements = user.achievements.map(({ achievementId, unlockedAt }) => {
-            const achievement = achievements.find(a => a.id === achievementId);
-            return { title: achievement.title, description: achievement.description, unlockedAt };
-        });
+        const user = await User.findById(userId).populate('achievements');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
-        res.status(200).json({ achievements: unlockedAchievements });
+        res.status(200).json({ achievements: user.achievements });
     } catch (error) {
         console.error("Error retrieving achievements:", error);
         res.status(500).json({ message: 'Error retrieving achievements', error });
     }
 };
 
+const getLeaderboard = async (req, res) => {
+    const { metric } = req.query;
+    const sortField = metric === 'credits' ? 'credits' : 'points';
+
+    try {
+        const leaderboard = await User.find()
+            .sort({ [sortField]: -1 })
+            .limit(10)
+            .select('username credits points'); // Fetch only required fields
+        res.status(200).json({ leaderboard, metric });
+    } catch (error) {
+        console.error('Error retrieving leaderboard:', error.message);
+        res.status(500).json({ message: 'Error retrieving leaderboard', error });
+    }
+};
+const getUserStats = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const user = await User.findById(userId).select('credits points achievements');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        res.status(200).json({ stats: user });
+    } catch (error) {
+        console.error('Error retrieving user stats:', error.message);
+        res.status(500).json({ message: 'Error retrieving user stats', error });
+    }
+};
 // Export all controllers
 module.exports = {
     registerUser,
     loginUser,
     getProfile,
     updateProfile,
+    unlockAchievement,
+    getUserAchievements,
+    checkAndUnlockAchievements,
     uploadProfileImage,
     generateReferralCode,
     viewReferrals,
-    unlockAchievement,
     getLeaderboard,
     getUserStats,
-    checkAndUnlockAchievements,
-    unlockAchievements,
-    getUserAchievements,
 };

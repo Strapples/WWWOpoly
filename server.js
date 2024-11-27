@@ -32,14 +32,14 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connect to MongoDB and run cron jobs if not in the test environment
 if (process.env.NODE_ENV !== 'test') {
-    mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    mongoose.connect(process.env.MONGO_URI,)
         .then(() => console.log('MongoDB connected'))
         .catch(err => console.error('Error connecting to MongoDB:', err));
 
     // Import and execute schedulers (cron jobs)
     require('./utils/cronjobs');
 } else {
-    mongoose.connect(process.env.MONGO_URI_TEST, { useNewUrlParser: true, useUnifiedTopology: true })
+    mongoose.connect(process.env.MONGO_URI_TEST,)
         .then(() => console.log('Connected to MongoDB for tests'))
         .catch(err => console.error('Error connecting to MongoDB for tests:', err));
 }

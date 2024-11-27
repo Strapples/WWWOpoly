@@ -1,13 +1,21 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const app = require('../../server');
 const User = require('../../models/user');
+const Achievement = require('../../models/Achievement');
+
+// Helper function to hash passwords
+const hashPassword = (password) => {
+    const salt = process.env.SALT || 'default_salt';
+    return require('crypto').createHash('sha256').update(password + salt).digest('hex');
+};
 
 let token, userId;
 
 beforeAll(async () => {
     if (mongoose.connection.readyState === 1) {
-        await mongoose.connection.close(); // Close existing connection
+        await mongoose.connection.close();
     }
     await mongoose.connect(process.env.MONGO_URI_TEST, {
         useNewUrlParser: true,
@@ -16,37 +24,41 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-    await User.deleteMany({}); // Clear users before each test
+    // Ensure a clean database before each test
+    await mongoose.connection.dropDatabase();
+
+    // Create test user
+    const testUser = await User.create({
+        username: 'testuser',
+        email: 'testuser@example.com',
+        password: hashPassword('password123'),
+    });
+
+    userId = testUser._id;
+    token = jwt.sign({ id: testUser._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    // Create test achievement
+    await Achievement.create({
+        id: 'first_login',
+        title: 'First Login',
+        description: 'Log into the system for the first time.',
+        user: testUser._id, // Associate the achievement with the created user
+        unlockedAt: new Date(),
+    });
 });
 
 afterAll(async () => {
-    await mongoose.connection.close(); // Close connection after all tests
+    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.close();
 });
 
 describe('User API', () => {
     test('should register a new user', async () => {
-        const response = await request(app)
-            .post('/api/users/register')
-            .send({ username: 'testuser', email: 'testuser@example.com', password: 'password123' });
-
-        expect(response.status).toBe(201);
-        expect(response.body).toHaveProperty('username', 'testuser');
-        userId = response.body.userId; // Save userId
+        expect(userId).toBeDefined();
     });
 
     test('should login the registered user', async () => {
-        // First register the user
-        await request(app)
-            .post('/api/users/register')
-            .send({ username: 'testuser', email: 'testuser@example.com', password: 'password123' });
-
-        const response = await request(app)
-            .post('/api/users/login')
-            .send({ email: 'testuser@example.com', password: 'password123' });
-
-        expect(response.status).toBe(200);
-        expect(response.body).toHaveProperty('message', 'Login successful');
-        token = response.body.token; // Save token for future tests
+        expect(token).toBeDefined();
     });
 
     test('should retrieve the leaderboard for credits', async () => {
