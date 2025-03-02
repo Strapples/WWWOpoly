@@ -27,6 +27,14 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/industry-events', industryEventRoutes);
 
+const path = require('path');
+
+// Serve Vue frontend in history mode
+app.use(express.static(path.join(__dirname, 'client/dist')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
+});
+
 // Serve static files from 'uploads' directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

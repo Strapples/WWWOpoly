@@ -34,3 +34,13 @@ Welcome to **WWWOpoly** — a web-based monopoly-inspired game where users can "
    ```bash
    git clone https://github.com/your-username/WWWOpoly.git
    cd WWWOpoly
+2. Start messing with the API endpoints (Thunderbird or Postman works well!) 
+3. I'll get a UI put together within the next 3-12 months so monitor the project
+
+Thanks to Our First Forks Team! 🎉
+(First 10 people to fork get a public thanks and a permanent place in the README.md!)
+	1.	@luvnft/WWWOpoly – Thanks for forking my project! You’ve got some awesome code projects on your side—don’t be surprised if I fork one in return. Enjoy working with the dev build, and if you get new features working, feel free to submit a pull request!
+
+I love collaboration, and I’ve selected Vue as the front end. If you plan to contribute on UI, stick with Vue to keep everything streamlined. Thanks again, and if you’re watching or using parts of my tech stack for your own project, I appreciate it!
+
+For those waiting for the full build of the game, expect it within the next 12-24 months! 🚀

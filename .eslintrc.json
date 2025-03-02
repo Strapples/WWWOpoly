@@ -24,5 +24,9 @@
     ],
     "rules": {
         // Add your custom rules here
+        "parserOptions": {
+            "parser": "@babel/eslint-parser",
+            "requireConfigFile": false
+        }
     }
 }
